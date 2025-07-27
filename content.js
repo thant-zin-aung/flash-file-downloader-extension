@@ -297,7 +297,7 @@ if (window.flashDownloaderInitialized) {
         renderFormats(popup, wrapper, formats, currentId);
       } catch (err) {
         console.error(err);
-        alert("Failed to fetch formats. Is your Flash Downloader app running?");
+        alert("Failed to fetch formats. Is Flash File Downloader app running?");
         wrapper.remove();
       }
     });
@@ -326,8 +326,6 @@ if (window.flashDownloaderInitialized) {
       wrapper.style.display = isFullscreen ? "none" : "inline-flex";
     });
   }
-
-  // `showFormatPopup()` — You already have this defined in your current script and it works. No changes needed here.
 
   function injectButtonIfNeeded() {
     const currentId = getCurrentVideoId();
