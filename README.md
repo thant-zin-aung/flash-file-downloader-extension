@@ -2,8 +2,6 @@
 
 A lightweight, modern, and elegant Chrome Extension that adds a **"⬇ Download This Video"** button directly on YouTube — allowing users to download videos or audio in the format of their choice.
 
-<br>
-
 ## ✨ Features
 
 - 🎯 **Smart format detection** using `yt-dlp` backend
