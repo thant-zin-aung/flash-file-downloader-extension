@@ -13,23 +13,36 @@ if (window.flashDownloaderInitialized) {
 
   function createDownloadButton(videoId) {
     const player = document.querySelector(".html5-video-player");
-    if (!player || document.getElementById("flash-downloader-btn")) return;
+    if (!player || document.getElementById("flash-downloader-btn-wrapper"))
+      return;
 
+    // Create wrapper container for button + close btn
+    const wrapper = document.createElement("div");
+    wrapper.id = "flash-downloader-btn-wrapper";
+    wrapper.style.position = "absolute";
+    wrapper.style.top = "0";
+    wrapper.style.left = "0";
+    wrapper.style.zIndex = "9999";
+    wrapper.style.display = "inline-flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.backgroundColor = "rgb(33 93 134)";
+    wrapper.style.borderRadius = "0 0 10px 0";
+    wrapper.style.padding = "6px 10px";
+    wrapper.style.fontWeight = "bold";
+
+    // Create main download button
     const btn = document.createElement("button");
     btn.id = "flash-downloader-btn";
     btn.dataset.videoId = videoId;
     btn.textContent = "⬇ Download This Video";
-    btn.style.position = "absolute";
-    btn.style.zIndex = "9999";
-    btn.style.top = "80px";
-    btn.style.right = "20px";
-    btn.style.padding = "10px 16px";
-    btn.style.backgroundColor = "#ff0000";
-    btn.style.color = "white";
+    btn.style.background = "none";
     btn.style.border = "none";
-    btn.style.borderRadius = "6px";
+    btn.style.color = "white";
     btn.style.fontWeight = "bold";
     btn.style.cursor = "pointer";
+    btn.style.padding = "0";
+    btn.style.marginRight = "10px";
+    btn.style.fontSize = "11px";
 
     btn.addEventListener("click", async () => {
       const currentId = getCurrentVideoId();
@@ -56,7 +69,36 @@ if (window.flashDownloaderInitialized) {
       showFormatPopup(formats, currentId);
     });
 
-    player.appendChild(btn);
+    // Create close button (small "×")
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "×";
+    closeBtn.title = "Close";
+    closeBtn.style.background = "transparent";
+    closeBtn.style.border = "none";
+    closeBtn.style.color = "white";
+    closeBtn.style.fontSize = "22px";
+    closeBtn.style.lineHeight = "1";
+    closeBtn.style.cursor = "pointer";
+    closeBtn.style.padding = "0";
+    closeBtn.style.margin = "0";
+    closeBtn.style.userSelect = "none";
+
+    closeBtn.addEventListener("click", () => {
+      wrapper.remove();
+    });
+
+    // Append buttons to wrapper
+    wrapper.appendChild(btn);
+    wrapper.appendChild(closeBtn);
+
+    // Append wrapper to player
+    player.appendChild(wrapper);
+
+    // Detect fullscreen mode and toggle visibility
+    document.addEventListener("fullscreenchange", () => {
+      const isFullscreen = !!document.fullscreenElement;
+      wrapper.style.display = isFullscreen ? "none" : "inline-flex";
+    });
   }
 
   function showFormatPopup(formats, videoId) {
@@ -132,8 +174,8 @@ if (window.flashDownloaderInitialized) {
 
     lastVideoId = currentId;
 
-    const oldBtn = document.getElementById("flash-downloader-btn");
-    if (oldBtn) oldBtn.remove();
+    const oldWrapper = document.getElementById("flash-downloader-btn-wrapper");
+    if (oldWrapper) oldWrapper.remove();
 
     const checkExist = setInterval(() => {
       const player = document.querySelector(".html5-video-player");
