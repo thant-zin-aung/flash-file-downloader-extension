@@ -1,3 +1,5 @@
+let cachedFormats = null;
+let cachedVideoId = null;
 // Prevent multiple injections
 if (window.flashDownloaderInitialized) {
   console.log("Flash Downloader already initialized");
@@ -54,16 +56,27 @@ if (window.flashDownloaderInitialized) {
       console.log("Button clicked, videoId:", currentId);
 
       let formats = [];
-      try {
-        const res = await fetch(
-          `http://localhost:12345/formats?url=${encodeURIComponent(
-            `https://www.youtube.com/watch?v=${currentId}`
-          )}`
-        );
-        formats = await res.json();
-      } catch (err) {
-        alert("Failed to fetch formats. Is your Flash Downloader app running?");
-        return;
+
+      if (cachedFormats && cachedVideoId === currentId) {
+        formats = cachedFormats;
+        console.log("Using cached formats for video:", currentId);
+      } else {
+        try {
+          const res = await fetch(
+            `http://localhost:12345/formats?url=${encodeURIComponent(
+              `https://www.youtube.com/watch?v=${currentId}`
+            )}`
+          );
+          formats = await res.json();
+          cachedFormats = formats;
+          cachedVideoId = currentId;
+          console.log("Fetched and cached new formats for video:", currentId);
+        } catch (err) {
+          alert(
+            "Failed to fetch formats. Is your Flash Downloader app running?"
+          );
+          return;
+        }
       }
 
       showFormatPopup(formats, currentId);
@@ -173,6 +186,8 @@ if (window.flashDownloaderInitialized) {
     if (!currentId || currentId === lastVideoId) return;
 
     lastVideoId = currentId;
+    cachedFormats = null;
+    cachedVideoId = null;
 
     const oldWrapper = document.getElementById("flash-downloader-btn-wrapper");
     if (oldWrapper) oldWrapper.remove();
