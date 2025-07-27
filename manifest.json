@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Flash File YouTube Downloader",
+  "version": "1.0",
+  "description": "Adds a download button on YouTube videos and supports custom download formats",
+  "permissions": ["scripting", "tabs", "webNavigation"],
+  "host_permissions": ["https://www.youtube.com/*", "http://localhost:12345/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/watch*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Flash File Downloader"
+  }
+}
