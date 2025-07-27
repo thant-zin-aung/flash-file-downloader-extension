@@ -1,6 +1,7 @@
+// Top-level cache
 let cachedFormats = null;
 let cachedVideoId = null;
-// Prevent multiple injections
+
 if (window.flashDownloaderInitialized) {
   console.log("Flash Downloader already initialized");
 } else {
@@ -13,112 +14,10 @@ if (window.flashDownloaderInitialized) {
     return new URLSearchParams(window.location.search).get("v");
   }
 
-  function createDownloadButton(videoId) {
-    const player = document.querySelector(".html5-video-player");
-    if (!player || document.getElementById("flash-downloader-btn-wrapper"))
-      return;
-
-    // Create wrapper container for button + close btn
-    const wrapper = document.createElement("div");
-    wrapper.id = "flash-downloader-btn-wrapper";
-    wrapper.style.position = "absolute";
-    wrapper.style.top = "0";
-    wrapper.style.left = "0";
-    wrapper.style.zIndex = "9999";
-    wrapper.style.display = "inline-flex";
-    wrapper.style.alignItems = "center";
-    wrapper.style.backgroundColor = "rgb(33 93 134)";
-    wrapper.style.borderRadius = "0 0 10px 0";
-    wrapper.style.padding = "6px 10px";
-    wrapper.style.fontWeight = "bold";
-
-    // Create main download button
-    const btn = document.createElement("button");
-    btn.id = "flash-downloader-btn";
-    btn.dataset.videoId = videoId;
-    btn.textContent = "⬇ Download This Video";
-    btn.style.background = "none";
-    btn.style.border = "none";
-    btn.style.color = "white";
-    btn.style.fontWeight = "bold";
-    btn.style.cursor = "pointer";
-    btn.style.padding = "0";
-    btn.style.marginRight = "10px";
-    btn.style.fontSize = "11px";
-
-    btn.addEventListener("click", async () => {
-      const currentId = getCurrentVideoId();
-      if (!currentId) {
-        alert("No video ID found.");
-        return;
-      }
-
-      console.log("Button clicked, videoId:", currentId);
-
-      let formats = [];
-
-      if (cachedFormats && cachedVideoId === currentId) {
-        formats = cachedFormats;
-        console.log("Using cached formats for video:", currentId);
-      } else {
-        try {
-          const res = await fetch(
-            `http://localhost:12345/formats?url=${encodeURIComponent(
-              `https://www.youtube.com/watch?v=${currentId}`
-            )}`
-          );
-          formats = await res.json();
-          cachedFormats = formats;
-          cachedVideoId = currentId;
-          console.log("Fetched and cached new formats for video:", currentId);
-        } catch (err) {
-          alert(
-            "Failed to fetch formats. Is your Flash Downloader app running?"
-          );
-          return;
-        }
-      }
-
-      showFormatPopup(formats, currentId);
-    });
-
-    // Create close button (small "×")
-    const closeBtn = document.createElement("button");
-    closeBtn.textContent = "×";
-    closeBtn.title = "Close";
-    closeBtn.style.background = "transparent";
-    closeBtn.style.border = "none";
-    closeBtn.style.color = "white";
-    closeBtn.style.fontSize = "22px";
-    closeBtn.style.lineHeight = "1";
-    closeBtn.style.cursor = "pointer";
-    closeBtn.style.padding = "0";
-    closeBtn.style.margin = "0";
-    closeBtn.style.userSelect = "none";
-
-    closeBtn.addEventListener("click", () => {
-      wrapper.remove();
-    });
-
-    // Append buttons to wrapper
-    wrapper.appendChild(btn);
-    wrapper.appendChild(closeBtn);
-
-    // Append wrapper to player
-    player.appendChild(wrapper);
-
-    // Detect fullscreen mode and toggle visibility
-    document.addEventListener("fullscreenchange", () => {
-      const isFullscreen = !!document.fullscreenElement;
-      wrapper.style.display = isFullscreen ? "none" : "inline-flex";
-    });
-  }
-
-  function showFormatPopup(formats, videoId) {
-    const existingWrapper = document.getElementById(
-      "flash-downloader-format-wrapper"
-    );
-    if (existingWrapper) existingWrapper.remove();
+  // --- NEW: keeps one popup and swaps its content ---
+  function openFormatsPopupSkeleton(mode = "loading") {
+    const existing = document.getElementById("flash-downloader-format-wrapper");
+    if (existing) existing.remove();
 
     const wrapper = document.createElement("div");
     wrapper.id = "flash-downloader-format-wrapper";
@@ -131,12 +30,10 @@ if (window.flashDownloaderInitialized) {
 
     const popup = document.createElement("div");
     popup.id = "flash-downloader-format-popup";
-    popup.style.width = "90vw";
-    popup.style.maxWidth = "700px";
+    popup.style.width = mode === "loading" ? "300px" : "90vw";
+    popup.style.maxWidth = mode === "loading" ? "300px" : "700px";
     popup.style.maxHeight = "70vh";
     popup.style.overflowY = "auto";
-
-    // Modern web dark theme styles with glassmorphism:
     popup.style.backgroundColor = "rgba(30, 30, 30, 0.85)";
     popup.style.backdropFilter = "blur(10px)";
     popup.style.border = "1px solid rgba(67, 126, 251, 0.6)";
@@ -146,14 +43,98 @@ if (window.flashDownloaderInitialized) {
     popup.style.fontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
     popup.style.color = "#e0e0e0";
     popup.style.cursor = "default";
+    popup.style.transition = "width 0.3s ease, max-width 0.3s ease";
 
-    // Title / Drag handle
+    wrapper.appendChild(popup);
+    document.body.appendChild(wrapper);
+
+    // Drag logic (unchanged)
+    let isDragging = false,
+      offsetX = 0,
+      offsetY = 0;
+    popup.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".format-card") || e.target.tagName === "BUTTON")
+        return;
+      isDragging = true;
+      const rect = wrapper.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      wrapper.style.transition = "none";
+      wrapper.style.transform = "none";
+      wrapper.style.left = `${rect.left}px`;
+      wrapper.style.top = `${rect.top}px`;
+    });
+    document.addEventListener("mousemove", (e) => {
+      if (!isDragging) return;
+      wrapper.style.left = `${e.clientX - offsetX}px`;
+      wrapper.style.top = `${e.clientY - offsetY}px`;
+    });
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+
+    return { wrapper, popup };
+  }
+
+  function renderLoading(popup) {
+    popup.innerHTML = "";
+
+    const title = document.createElement("h3");
+    title.textContent = "Fetching available formats...";
+    title.style.color = "#437efb";
+    title.style.margin = "0 0 20px";
+    title.style.textAlign = "center";
+    popup.appendChild(title);
+
+    const spinner = document.createElement("div");
+    spinner.style.border = "5px solid #333";
+    spinner.style.borderTop = "5px solid #437efb";
+    spinner.style.borderRadius = "50%";
+    spinner.style.width = "40px";
+    spinner.style.height = "40px";
+    spinner.style.margin = "0 auto 20px";
+    spinner.style.animation = "spin 1s linear infinite";
+    popup.appendChild(spinner);
+
+    const style = document.createElement("style");
+    style.textContent = `
+    @keyframes spin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+  `;
+    document.head.appendChild(style);
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.style.padding = "10px 20px";
+    cancelBtn.style.backgroundColor = "transparent";
+    cancelBtn.style.border = "1px solid #437efb";
+    cancelBtn.style.color = "#437efb";
+    cancelBtn.style.borderRadius = "6px";
+    cancelBtn.style.cursor = "pointer";
+    cancelBtn.style.display = "block";
+    cancelBtn.style.margin = "0 auto";
+    cancelBtn.addEventListener("mouseover", () => {
+      cancelBtn.style.backgroundColor = "#437efb";
+      cancelBtn.style.color = "#fff";
+    });
+    cancelBtn.addEventListener("mouseout", () => {
+      cancelBtn.style.backgroundColor = "transparent";
+      cancelBtn.style.color = "#437efb";
+    });
+    cancelBtn.addEventListener("click", () => {
+      document.getElementById("flash-downloader-format-wrapper")?.remove();
+    });
+
+    popup.appendChild(cancelBtn);
+  }
+
+  function renderFormats(popup, wrapper, formats, videoId) {
+    popup.innerHTML = "";
+
     const title = document.createElement("h3");
     title.textContent = "Select Format to Download";
     title.style.color = "#437efb";
     title.style.margin = "0 0 20px";
     title.style.textAlign = "center";
-    title.style.cursor = "move";
     popup.appendChild(title);
 
     const formatGrid = document.createElement("div");
@@ -221,7 +202,6 @@ if (window.flashDownloaderInitialized) {
       card.appendChild(res);
       card.appendChild(type);
       card.appendChild(size);
-
       formatGrid.appendChild(card);
     });
 
@@ -252,43 +232,106 @@ if (window.flashDownloaderInitialized) {
     cancelBtn.addEventListener("click", () => wrapper.remove());
 
     popup.appendChild(cancelBtn);
-    wrapper.appendChild(popup);
-    document.body.appendChild(wrapper);
+  }
 
-    // DRAG SUPPORT — click anywhere EXCEPT format cards or buttons
-    let isDragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
+  function createDownloadButton(videoId) {
+    const player = document.querySelector(".html5-video-player");
+    if (!player || document.getElementById("flash-downloader-btn-wrapper"))
+      return;
 
-    popup.addEventListener("mousedown", (e) => {
-      if (e.target.closest(".format-card") || e.target.tagName === "BUTTON")
+    const wrapper = document.createElement("div");
+    wrapper.id = "flash-downloader-btn-wrapper";
+    wrapper.style.position = "absolute";
+    wrapper.style.top = "0";
+    wrapper.style.left = "0";
+    wrapper.style.zIndex = "9999";
+    wrapper.style.display = "inline-flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.backgroundColor = "rgb(33 93 134)";
+    wrapper.style.borderRadius = "0 0 10px 0";
+    wrapper.style.padding = "6px 10px";
+    wrapper.style.fontWeight = "bold";
+
+    const btn = document.createElement("button");
+    btn.id = "flash-downloader-btn";
+    btn.dataset.videoId = videoId;
+    btn.textContent = "⬇ Download This Video";
+    btn.style.background = "none";
+    btn.style.border = "none";
+    btn.style.color = "white";
+    btn.style.fontWeight = "bold";
+    btn.style.cursor = "pointer";
+    btn.style.padding = "0";
+    btn.style.marginRight = "10px";
+    btn.style.fontSize = "11px";
+
+    btn.addEventListener("click", async () => {
+      const currentId = getCurrentVideoId();
+      if (!currentId) {
+        alert("No video ID found.");
         return;
-      isDragging = true;
-      const rect = wrapper.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-      wrapper.style.transition = "none";
-      wrapper.style.transform = "none";
-      wrapper.style.left = `${rect.left}px`;
-      wrapper.style.top = `${rect.top}px`;
+      }
+
+      const { wrapper, popup } = openFormatsPopupSkeleton("loading");
+      renderLoading(popup);
+
+      let formats = [];
+      try {
+        if (cachedFormats && cachedVideoId === currentId) {
+          formats = cachedFormats;
+          console.log("Using cached formats for video:", currentId);
+        } else {
+          const res = await fetch(
+            `http://localhost:12345/formats?url=${encodeURIComponent(
+              `https://www.youtube.com/watch?v=${currentId}`
+            )}`
+          );
+          formats = await res.json();
+          cachedFormats = formats;
+          cachedVideoId = currentId;
+          console.log("Fetched and cached new formats for video:", currentId);
+        }
+
+        popup.style.width = "90vw";
+        popup.style.maxWidth = "700px";
+        renderFormats(popup, wrapper, formats, currentId);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to fetch formats. Is your Flash Downloader app running?");
+        wrapper.remove();
+      }
     });
 
-    document.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      wrapper.style.left = `${e.clientX - offsetX}px`;
-      wrapper.style.top = `${e.clientY - offsetY}px`;
+    const closeBtn = document.createElement("button");
+    closeBtn.textContent = "×";
+    closeBtn.title = "Close";
+    closeBtn.style.background = "transparent";
+    closeBtn.style.border = "none";
+    closeBtn.style.color = "white";
+    closeBtn.style.fontSize = "22px";
+    closeBtn.style.cursor = "pointer";
+    closeBtn.style.padding = "0";
+    closeBtn.style.margin = "0";
+
+    closeBtn.addEventListener("click", () => {
+      wrapper.remove();
     });
 
-    document.addEventListener("mouseup", () => {
-      isDragging = false;
+    wrapper.appendChild(btn);
+    wrapper.appendChild(closeBtn);
+    player.appendChild(wrapper);
+
+    document.addEventListener("fullscreenchange", () => {
+      const isFullscreen = !!document.fullscreenElement;
+      wrapper.style.display = isFullscreen ? "none" : "inline-flex";
     });
   }
 
+  // `showFormatPopup()` — You already have this defined in your current script and it works. No changes needed here.
+
   function injectButtonIfNeeded() {
     const currentId = getCurrentVideoId();
-
     if (!currentId || currentId === lastVideoId) return;
-
     lastVideoId = currentId;
     cachedFormats = null;
     cachedVideoId = null;
@@ -305,7 +348,6 @@ if (window.flashDownloaderInitialized) {
     }, 500);
   }
 
-  // Observe URL change in YouTube SPA
   let currentUrl = location.href;
   const urlObserver = new MutationObserver(() => {
     if (location.href !== currentUrl) {
@@ -315,6 +357,5 @@ if (window.flashDownloaderInitialized) {
   });
   urlObserver.observe(document.body, { childList: true, subtree: true });
 
-  // Initial button injection
   injectButtonIfNeeded();
 }
