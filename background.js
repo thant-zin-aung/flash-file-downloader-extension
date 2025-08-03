@@ -1,6 +1,6 @@
 console.log("Background script loaded");
 
-// Inject content.js on YouTube SPA navigation changes
+// --- YouTube SPA navigation handling ---
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   if (details.url.includes("https://www.youtube.com/watch")) {
     chrome.scripting
@@ -17,6 +17,7 @@ chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   }
 });
 
+// --- Handle messages from content.js or popup ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "getFormats") {
     const videoUrl = `https://www.youtube.com/watch?v=${message.videoId}`;
@@ -62,4 +63,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true; // Allow async sendResponse
   }
+});
+
+// --- Storage for headers mapped by URL ---
+const requestHeadersMap = {};
+
+// --- Capture request headers for all URLs ---
+chrome.webRequest.onBeforeSendHeaders.addListener(
+  (details) => {
+    const headers = {};
+    for (const header of details.requestHeaders) {
+      headers[header.name.toLowerCase()] = header.value;
+    }
+    requestHeadersMap[details.url] = headers;
+  },
+  { urls: ["<all_urls>"] },
+  ["requestHeaders", "extraHeaders"]
+);
+
+// --- Intercept Chrome Downloads ---
+chrome.downloads.onCreated.addListener((downloadItem) => {
+  const url = downloadItem.url;
+  const filename = downloadItem.filename;
+  const headers = requestHeadersMap[url] || {};
+
+  console.log("Intercepted download:", url);
+  console.log("Filename: " + filename);
+
+  chrome.downloads.cancel(downloadItem.id, () => {
+    chrome.downloads.erase({ id: downloadItem.id });
+
+    fetch("http://localhost:12345/intercepted-download", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, filename, headers }),
+    })
+      .then(() => {
+        console.log("Forwarded to Flash File Downloader with headers");
+      })
+      .catch((err) => {
+        console.error("Failed to forward download:", err);
+      });
+  });
 });

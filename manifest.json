@@ -3,8 +3,18 @@
   "name": "Flash File YouTube Downloader",
   "version": "1.0",
   "description": "Adds a download button on YouTube videos and supports custom download formats",
-  "permissions": ["scripting", "tabs", "webNavigation"],
-  "host_permissions": ["https://www.youtube.com/*", "http://localhost:12345/*"],
+  "permissions": [
+    "scripting",
+    "tabs",
+    "webNavigation",
+    "downloads",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "http://localhost:12345/*",
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js"
   },
